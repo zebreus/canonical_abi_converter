@@ -11,3 +11,4 @@ homepage = "https://github.com/zebreus/canonical_abi_converter/tree/main/canonic
 # description = ""
 
 [dependencies]
+bitflags.workspace = true

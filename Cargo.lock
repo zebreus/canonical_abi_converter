@@ -19,6 +19,9 @@ dependencies = [
 [[package]]
 name = "canonical_abi_converter_lib"
 version = "0.0.1"
+dependencies = [
+ "bitflags",
+]
 
 [[package]]
 name = "canonical_abi_converter_macro"
@@ -26,6 +29,7 @@ version = "0.0.1"
 dependencies = [
  "canonical_abi_converter_lib",
  "darling",
+ "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn",
@@ -178,6 +182,28 @@ name = "once_cell"
 version = "1.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d75b0bedcc4fe52caa0e03d9f1151a323e4aa5e2d78ba3580400cd3c9e2bc4bc"
+
+[[package]]
+name = "proc-macro-error-attr2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "proc-macro-error2"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
+dependencies = [
+ "proc-macro-error-attr2",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "proc-macro2"
