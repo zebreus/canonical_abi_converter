@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    "canonical_abi_converter",
+    "canonical_abi_converter_macro",
+    "canonical_abi_converter_lib",
+]
+
+[workspace.dependencies]
+canonical_abi_converter_macro = { path = "./canonical_abi_converter_macro" }
+canonical_abi_converter_lib = { path = "./canonical_abi_converter_lib" }
+canonical_abi_converter = { path = "./canonical_abi_converter" }
+darling = "0.20.10"
+proc-macro2 = { version = "1.0.94", features = ["span-locations"] }
+quote = { version = "1.0.40" }
+tempfile = "3.19.0"
+thiserror = "2.0.12"
+syn = { version = "2.0.100", features = ["full"] }
+trybuild = { version = "1.0.80", features = ["diff"] }

@@ -1,0 +1,24 @@
+[package]
+name = "canonical_abi_converter_macro"
+version = "0.1.0"
+edition = "2024"
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/tests.rs"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+canonical_abi_converter_lib.workspace = true
+darling.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+syn.workspace = true
+
+[dev-dependencies]
+trybuild.workspace = true
