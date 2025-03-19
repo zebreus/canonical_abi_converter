@@ -1,7 +1,14 @@
 [package]
 name = "canonical_abi_converter_macro"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+# keywords = []
+# categories = []
+homepage = "https://github.com/zebreus/canonical_abi_converter/tree/main/canonical_abi_converter_macro"
+# description = ""
 autotests = false
 
 [[test]]

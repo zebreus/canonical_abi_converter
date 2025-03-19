@@ -10,7 +10,7 @@ checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
 name = "canonical_abi_converter"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "canonical_abi_converter_lib",
  "canonical_abi_converter_macro",
@@ -18,11 +18,11 @@ dependencies = [
 
 [[package]]
 name = "canonical_abi_converter_lib"
-version = "0.1.0"
+version = "0.0.1"
 
 [[package]]
 name = "canonical_abi_converter_macro"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "canonical_abi_converter_lib",
  "darling",
