@@ -4,6 +4,8 @@
 #![feature(slice_as_chunks)]
 #![feature(str_from_utf16_endian)]
 #![feature(macro_metavar_expr)]
+#![feature(slice_as_array)]
+#![feature(more_qualified_paths)]
 
 pub use alignment::{alignment, alignment_flags, alignment_list, discriminant_type};
 pub use element_size::{align_to, elem_size, elem_size_flags, elem_size_list};
@@ -14,9 +16,17 @@ pub use loading::{
     load_list, load_list_from_range, load_list_from_valid_range, load_string,
     load_string_from_range,
 };
+pub use storing::{
+    char_to_i32, core_i32_reinterpret_f32, core_i64_reinterpret_f64, encode_float_as_i32,
+    encode_float_as_i64, lower_error_context, maybe_scramble_nan32, maybe_scramble_nan64,
+    random_nan_bits, store, store_array, store_latin1_to_utf8, store_list,
+    store_probably_utf16_to_latin1_or_utf16, store_string, store_string_to_latin1_or_utf16,
+    store_utf8_to_utf16, store_utf16_to_utf8,
+};
 mod alignment;
 mod element_size;
 mod loading;
+mod storing;
 
 pub const fn max(current_max: u32, numbers: &[u32]) -> u32 {
     let Some((head, tail)) = numbers.split_first() else {
@@ -36,8 +46,12 @@ pub enum ConverterError {
         size: u32,
     },
     SomethingWentWrong,
-    CharOutOfRange,
-    CharIsSurrogate,
+    CharOutOfRange {
+        codepoint: i32,
+    },
+    CharIsSurrogate {
+        codepoint: i32,
+    },
     ValueForBoolOutOfRange,
     /// String pointer is not aligned
     StringAlignmentError,
@@ -47,6 +61,21 @@ pub enum ConverterError {
     Latin1EncodedStringsNotSupported,
     // Invalid discriminant index
     InvalidDiscriminantIndex,
+    /// String is too long to store
+    StringTooLongToStore {
+        length: u32,
+    },
+    /// List is too long too store
+    ListTooLongToStore {
+        /// Size in bytes
+        size: u32,
+    },
+    /// Allocation return unaligned pointer
+    AllocatedPointerNotAligned,
+    /// Failed to allocate memory for a string
+    AllocationFailedForAString,
+    /// Failed to allocate memory for a list
+    AllocationFailedForAList,
 }
 
 pub enum ContextStringEncoding {
@@ -72,7 +101,24 @@ impl RealStringEncoding {
 pub trait Context {
     fn string_encoding(&self) -> ContextStringEncoding;
     fn get_array<const SIZE: usize>(&self, offset: u32) -> Result<&[u8; SIZE], ConverterError>;
+    fn get_array_mut<const SIZE: usize>(
+        &mut self,
+        offset: u32,
+    ) -> Result<&mut [u8; SIZE], ConverterError>;
     fn get_slice(&self, offset: u32, size: usize) -> Result<&[u8], ConverterError>;
+    fn get_slice_mut(&mut self, offset: u32, size: usize) -> Result<&mut [u8], ConverterError>;
+    /// Reallocate the memory at the given offset
+    /// Returns the new offset
+    ///
+    /// Can be used for freeing memory by passing 0 as the new size
+    /// Can be used for allocating memory by passing 0 as the old offset
+    fn realloc(
+        &mut self,
+        old_offset: u32,
+        old_size: u32,
+        align: u32,
+        new_size: u32,
+    ) -> Result<u32, ConverterError>;
 }
 
 pub trait CanonicalAbi
@@ -291,17 +337,44 @@ impl_canonical_abi_for_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::convert::TryInto;
 
-    #[derive(Debug, Clone)]
+    use super::*;
+    use std::{
+        alloc::{GlobalAlloc, Layout},
+        convert::TryInto,
+        ptr::null,
+        vec,
+    };
+
+    const HEAP_SIZE: usize = 4096;
+
+    #[derive()]
     pub struct SampleContext {
         memory: Vec<u8>,
+        allocator: ::talc::Talck<::spin::Mutex<()>, ::talc::ClaimOnOom>,
+    }
+
+    impl std::fmt::Debug for SampleContext {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("SampleContext")
+                .field("memory", &self.memory)
+                .finish()
+        }
     }
 
     impl SampleContext {
-        pub fn new(memory: Vec<u8>) -> Self {
-            SampleContext { memory }
+        pub fn new(mut memory: Vec<u8>) -> Self {
+            let original_size = memory.len();
+            memory.extend_from_slice(&vec![0; HEAP_SIZE]);
+            let heap_ptr = memory[original_size..].as_mut_ptr() as *mut [u8; HEAP_SIZE];
+            let allocator = unsafe {
+                ::talc::Talc::new(::talc::ClaimOnOom::new(::talc::Span::from_array(heap_ptr)))
+                    .lock()
+            };
+            SampleContext { memory, allocator }
+        }
+        pub fn get_memory(&self) -> &[u8] {
+            &self.memory
         }
     }
 
@@ -314,8 +387,22 @@ mod tests {
                 });
             }
             self.memory[offset as usize..offset as usize + SIZE]
-                .try_into()
-                .map_err(|_| ConverterError::SomethingWentWrong)
+                .as_array::<SIZE>()
+                .ok_or(ConverterError::SomethingWentWrong)
+        }
+        fn get_array_mut<const SIZE: usize>(
+            &mut self,
+            offset: u32,
+        ) -> Result<&mut [u8; SIZE], ConverterError> {
+            if offset as usize + SIZE > self.memory.len() {
+                return Err(ConverterError::OutOfBoundsMemoryAccess {
+                    accessed: (offset as usize + SIZE) as u32,
+                    size: self.memory.len() as u32,
+                });
+            }
+            self.memory[offset as usize..offset as usize + SIZE]
+                .as_mut_array::<SIZE>()
+                .ok_or(ConverterError::SomethingWentWrong)
         }
         fn get_slice(&self, offset: u32, size: usize) -> Result<&[u8], ConverterError> {
             if offset as usize + size > self.memory.len() {
@@ -328,8 +415,59 @@ mod tests {
                 .try_into()
                 .map_err(|_| ConverterError::SomethingWentWrong)
         }
+        fn get_slice_mut(&mut self, offset: u32, size: usize) -> Result<&mut [u8], ConverterError> {
+            if offset as usize + size > self.memory.len() {
+                return Err(ConverterError::OutOfBoundsMemoryAccess {
+                    accessed: (offset as usize + size) as u32,
+                    size: self.memory.len() as u32,
+                });
+            }
+            self.memory[offset as usize..offset as usize + size]
+                .as_mut()
+                .try_into()
+                .map_err(|_| ConverterError::SomethingWentWrong)
+        }
         fn string_encoding(&self) -> ContextStringEncoding {
             ContextStringEncoding::Utf8
+        }
+
+        fn realloc(
+            &mut self,
+            old_offset: u32,
+            old_size: u32,
+            align: u32,
+            new_size: u32,
+        ) -> Result<u32, ConverterError> {
+            let ptr = self.memory.as_mut_ptr();
+            let result = match (old_offset, new_size) {
+                (0, new_size) => unsafe {
+                    let new_ptr = self.allocator.alloc(Layout::from_size_align_unchecked(
+                        new_size as usize,
+                        align as usize,
+                    ));
+                    new_ptr
+                },
+                (old_offset, 0) => unsafe {
+                    let old_ptr = ptr.add(old_offset as usize);
+                    self.allocator.dealloc(
+                        old_ptr,
+                        Layout::from_size_align_unchecked(old_size as usize, align as usize),
+                    );
+                    null()
+                },
+                (old_offset, new_size) => unsafe {
+                    let old_ptr = ptr.add(old_offset as usize);
+                    self.allocator.realloc(
+                        old_ptr,
+                        Layout::from_size_align_unchecked(old_size as usize, align as usize),
+                        new_size as usize,
+                    )
+                },
+            };
+            if result.is_null() {
+                return Ok(0);
+            }
+            return Ok(((result as usize) - (ptr as usize)) as u32);
         }
     }
 }

@@ -37,7 +37,7 @@ use crate::{
 ///     case FutureType(t)      : return lift_future(cx, load_int(cx, ptr, 4), t)
 /// ```
 ///
-/// The load functions is represented by the associated function `load` of `CanonicalAbi`. Because of that this function is basically a no-op.
+/// The load function is represented by the associated function `load` of `CanonicalAbi`. Because of that this function is basically a no-op.
 pub fn load<'a, T: CanonicalAbi, C: Context>(
     context: &'a C,
     offset: u32,
@@ -177,12 +177,12 @@ pub fn convert_i32_to_char<C: Context>(
     codepoint: i32,
 ) -> Result<char, ConverterError> {
     if codepoint < 0 || codepoint > 0x10FFFF {
-        return Err(ConverterError::CharOutOfRange);
+        return Err(ConverterError::CharOutOfRange { codepoint });
     }
     if codepoint >= 0xD800 && codepoint <= 0xDFFF {
-        return Err(ConverterError::CharIsSurrogate);
+        return Err(ConverterError::CharIsSurrogate { codepoint });
     }
-    Ok(char::from_u32(codepoint as u32).ok_or(ConverterError::CharOutOfRange)?)
+    Ok(char::from_u32(codepoint as u32).ok_or(ConverterError::CharOutOfRange { codepoint })?)
 }
 
 /// Strings are loaded from two `i32` values: a pointer (offset in linear memory) and a number of bytes. There are three supported string encodings in [`canonopt`]: [UTF-8], [UTF-16] and `latin1+utf16`. This last options allows a *dynamic* choice between [Latin-1] and UTF-16, indicated by the high bit of the second `i32`. String values include their original encoding and byte length as a "hint" that enables `store_string` (defined below) to make better up-front allocation size choices in many cases. Thus, the value produced by `load_string` isn't simply a Python `str`, but a *tuple* containing a `str`, the original encoding and the original byte length.
