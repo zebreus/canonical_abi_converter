@@ -129,6 +129,7 @@ where
     const SIZE: u32;
 
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError>;
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError>;
 }
 
 impl CanonicalAbi for () {
@@ -137,15 +138,23 @@ impl CanonicalAbi for () {
     fn load<'a, C: Context>(_context: &'a C, _offset: u32) -> Result<Self, ConverterError> {
         Ok(())
     }
+    fn store<'a, C: Context>(
+        &self,
+        _context: &'a mut C,
+        _offset: u32,
+    ) -> Result<Self, ConverterError> {
+        Ok(())
+    }
 }
 impl CanonicalAbi for bool {
     const ALIGNMENT: u32 = 1;
     const SIZE: u32 = 1;
-    // fn load(_data: &[u8; Self::SIZE]) -> Self {
-    //     true
-    // }
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         convert_int_to_bool(load_int!(context, offset, i32)?)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, u8, *self as u8);
+        Ok(())
     }
 }
 impl CanonicalAbi for u8 {
@@ -154,12 +163,20 @@ impl CanonicalAbi for u8 {
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, u8, *self);
+        Ok(())
+    }
 }
 impl CanonicalAbi for i8 {
     const ALIGNMENT: u32 = 1;
     const SIZE: u32 = 1;
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, i8, *self);
+        Ok(())
     }
 }
 impl CanonicalAbi for u16 {
@@ -168,12 +185,20 @@ impl CanonicalAbi for u16 {
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, u16, *self);
+        Ok(())
+    }
 }
 impl CanonicalAbi for i16 {
     const ALIGNMENT: u32 = 2;
     const SIZE: u32 = 2;
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, i16, *self);
+        Ok(())
     }
 }
 impl CanonicalAbi for u32 {
@@ -182,12 +207,20 @@ impl CanonicalAbi for u32 {
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, u32, *self);
+        Ok(())
+    }
 }
 impl CanonicalAbi for i32 {
     const ALIGNMENT: u32 = 4;
     const SIZE: u32 = 4;
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, i32, *self);
+        Ok(())
     }
 }
 impl CanonicalAbi for u64 {
@@ -196,12 +229,20 @@ impl CanonicalAbi for u64 {
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, u64, *self);
+        Ok(())
+    }
 }
 impl CanonicalAbi for i64 {
     const ALIGNMENT: u32 = 8;
     const SIZE: u32 = 8;
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_int!(context, offset, Self)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, i64, *self);
+        Ok(())
     }
 }
 impl CanonicalAbi for f32 {
@@ -210,12 +251,20 @@ impl CanonicalAbi for f32 {
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         decode_i32_as_float(context, load_int!(context, offset, i32)?)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, i32, encode_float_as_i32(*self));
+        Ok(())
+    }
 }
 impl CanonicalAbi for f64 {
     const ALIGNMENT: u32 = 8;
     const SIZE: u32 = 8;
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         decode_i64_as_float(context, load_int!(context, offset, i64)?)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, i64, encode_float_as_i64(*self));
+        Ok(())
     }
 }
 
@@ -225,12 +274,19 @@ impl CanonicalAbi for char {
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         convert_i32_to_char(context, load_int!(context, offset, i32)?)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_int!(context, offset, i32, char_to_i32(*self)?);
+        Ok(())
+    }
 }
 impl CanonicalAbi for String {
     const ALIGNMENT: u32 = 4;
     const SIZE: u32 = 8;
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_string(context, offset)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_string(context, offset, self)
     }
 }
 
@@ -239,6 +295,9 @@ impl<T: CanonicalAbi> CanonicalAbi for Vec<T> {
     const SIZE: u32 = { elem_size_list::<T, -1>() };
     fn load<'a, C: Context>(context: &'a C, offset: u32) -> Result<Self, ConverterError> {
         load_list::<C, T, -1>(context, offset)
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_list(context, offset, self)
     }
 }
 
@@ -253,6 +312,10 @@ impl<T: bitflags::Flags<Bits = u8>> CanonicalAbi for WrappedBitflags<u8, T> {
             inner: T::from_bits_truncate(load_int!(context, offset, T::Bits)?),
         })
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_flags!(context, offset, bitflags::Flags<Bits = u8>, &self.inner);
+        Ok(())
+    }
 }
 impl<T: bitflags::Flags<Bits = u16>> CanonicalAbi for WrappedBitflags<u16, T> {
     const ALIGNMENT: u32 = { alignment_flags::<T::Bits>() };
@@ -262,6 +325,10 @@ impl<T: bitflags::Flags<Bits = u16>> CanonicalAbi for WrappedBitflags<u16, T> {
             inner: T::from_bits_truncate(load_int!(context, offset, T::Bits)?),
         })
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_flags!(context, offset, bitflags::Flags<Bits = u16>, &self.inner);
+        Ok(())
+    }
 }
 impl<T: bitflags::Flags<Bits = u32>> CanonicalAbi for WrappedBitflags<u32, T> {
     const ALIGNMENT: u32 = { alignment_flags::<T::Bits>() };
@@ -270,6 +337,10 @@ impl<T: bitflags::Flags<Bits = u32>> CanonicalAbi for WrappedBitflags<u32, T> {
         Ok(WrappedBitflags {
             inner: T::from_bits_truncate(load_int!(context, offset, T::Bits)?),
         })
+    }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_flags!(context, offset, bitflags::Flags<Bits = u32>, &self.inner);
+        Ok(())
     }
 }
 
@@ -288,6 +359,18 @@ impl<T: CanonicalAbi> CanonicalAbi for Option<T> {
         );
         Ok(value)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_variant!(
+            context,
+            offset,
+            enum Self {
+                None,
+                Some(T),
+            },
+            self
+        );
+        Ok(())
+    }
 }
 
 impl<T: CanonicalAbi, E: CanonicalAbi> CanonicalAbi for Result<T, E> {
@@ -304,6 +387,18 @@ impl<T: CanonicalAbi, E: CanonicalAbi> CanonicalAbi for Result<T, E> {
         );
         Ok(value)
     }
+    fn store<'a, C: Context>(&self, context: &'a mut C, offset: u32) -> Result<(), ConverterError> {
+        store_variant!(
+            context,
+            offset,
+            enum Self {
+                Ok(T),
+                Err(E),
+            },
+            self
+        );
+        Ok(())
+    }
 }
 
 macro_rules! impl_canonical_abi_for_tuple {
@@ -313,6 +408,10 @@ macro_rules! impl_canonical_abi_for_tuple {
             const SIZE: u32 = elem_size_record!(Self, $($name),*);
             fn load<'a, CC: Context>(context: &'a CC, offset: u32) -> Result<Self, ConverterError> {
                 Ok(load_tuple!(context, offset, ($($name,)*)))
+            }
+            fn store<'a, CC: Context>(&self, context: &'a mut CC, offset: u32) -> Result<(), ConverterError> {
+                store_tuple!(context, offset, ($($name,)*), self);
+                Ok(())
             }
         }
     };

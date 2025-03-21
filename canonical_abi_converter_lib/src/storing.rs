@@ -39,11 +39,11 @@ use crate::{
 ///
 /// The store function is represented by the associated function `store` of `CanonicalAbi`. Because of that this function is basically a no-op.
 pub fn store<'a, T: CanonicalAbi, C: Context>(
-    _context: &mut C,
-    _offset: u32,
-    _value: &T,
+    context: &mut C,
+    offset: u32,
+    value: &T,
 ) -> Result<(), ConverterError> {
-    todo!("Implement store function on CanonicalAbi")
+    value.store(context, offset)
 }
 
 /// Integers are stored directly into memory. Because the input domain is exactly the integers in range for the given type, no extra range checks are necessary; the `signed` parameter is only present to ensure that the internal range checks of `int.to_bytes` are satisfied.
@@ -683,7 +683,7 @@ mod tests {
     fn test_store_u8() -> Result<(), ConverterError> {
         let mut context = SampleContext::new(vec![0u8; 4]);
         store_int!(context, 0, u8, 23);
-        assert_eq!(context.get_memory(), [23, 0, 0, 0]);
+        assert_eq!(context.get_memory()[0..4], [23, 0, 0, 0]);
         Ok(())
     }
 
@@ -708,8 +708,7 @@ mod tests {
     fn test_store_list() -> Result<(), ConverterError> {
         let mut context = SampleContext::new(vec![0u8; 16]);
         store_array::<SampleContext, u8, 3>(&mut context, 0, &[1, 2, 3])?;
-        assert_ne!(context.get_memory()[0..4], [0, 0, 0, 0]);
-        assert_eq!(context.get_memory()[4..8], [3, 0, 0, 0]);
+        assert_eq!(context.get_memory()[0..4], [1, 2, 3, 0]);
         Ok(())
     }
 
@@ -719,7 +718,7 @@ mod tests {
             a: u8,
             b: u16,
         }
-        let val = SampleStruct { a: 3, b: 3 };
+        let val = SampleStruct { a: 3, b: 258 };
         let mut context = SampleContext::new(vec![0u8; 16]);
         store_record!(
             &mut context,
@@ -730,8 +729,7 @@ mod tests {
             },
             &val
         );
-        // assert_ne!(context.get_memory()[0..4], [0, 0, 0, 0]);
-        // assert_eq!(context.get_memory()[4..8], [3, 0, 0, 0]);
+        assert_eq!(context.get_memory()[0..4], [3, 0, 2, 1]);
         Ok(())
     }
 
@@ -740,8 +738,9 @@ mod tests {
         let val = (256u16, 65656u32, String::from("Hello, World!"));
         let mut context = SampleContext::new(vec![0u8; 16]);
         store_tuple!(&mut context, 0, (u16, u32, String,), &val);
-        // assert_ne!(context.get_memory()[0..4], [0, 0, 0, 0]);
-        // assert_eq!(context.get_memory()[4..8], [3, 0, 0, 0]);
+        assert_eq!(context.get_memory()[0..8], [0, 1, 0, 0, 120, 0, 1, 0]);
+        assert_ne!(context.get_memory()[8..12], [0, 0, 0, 0]);
+        assert_eq!(context.get_memory()[12..16], [13, 0, 0, 0]);
         Ok(())
     }
 
@@ -765,8 +764,7 @@ mod tests {
             },
             &val
         );
-        // assert_ne!(context.get_memory()[0..4], [0, 0, 0, 0]);
-        // assert_eq!(context.get_memory()[4..8], [3, 0, 0, 0]);
+        assert_eq!(context.get_memory()[0..4], [1, 0, 0, 0]);
         Ok(())
     }
 
@@ -774,19 +772,19 @@ mod tests {
     fn test_store_flags() -> Result<(), ConverterError> {
         // use bitflags::bitflags;
         bitflags::bitflags! {
-            pub struct Flags: u32 {
+            pub struct Flags: u16 {
                 const A = 0b00000001;
                 const B = 0b00000010;
                 const C = 0b00000100;
             }
         }
 
-        let wrapped: WrappedBitflags<u32, Flags> = WrappedBitflags {
+        let wrapped: WrappedBitflags<u16, Flags> = WrappedBitflags {
             inner: Flags::A | Flags::C,
         };
         let mut context = SampleContext::new(vec![0u8; 16]);
-        store_flags!(&mut context, 0, bitflags::Flags<Bits = u32>, &wrapped.inner);
-        // assert_ne!(context.get_memory()[0..4], [0, 0, 0, 0]);
+        store_flags!(&mut context, 0, bitflags::Flags<Bits = u16>, &wrapped.inner);
+        assert_eq!(context.get_memory()[0..4], [0b00000101, 0, 0, 0]);
         // assert_eq!(context.get_memory()[4..8], [3, 0, 0, 0]);
         Ok(())
     }
